@@ -28,3 +28,4 @@ urlpatterns = [
     path('hapus/', deleteData),
     path('', index),
 ]
+# jangan lupa menambahkan fungsi ini di urls.py
