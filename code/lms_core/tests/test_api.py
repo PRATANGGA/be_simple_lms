@@ -33,12 +33,69 @@ class APITestCase(TestCase):
         self.assertEqual(len(response.json()['items']), 1)
 
     def test_create_course(self):
-        response = self.client.post(self.base_url+'courses', data={
+        response = self.client.post(self.base_url + 'courses', data={
             'name': 'New Course',
             'description': 'New Course Description',
             'price': 150,
             'file': {'image': None}
-        }, format='multipart', **{'HTTP_AUTHORIZATION': 'Bearer ' + str(self.token)})
-        # print(response.request)
+        }, format='multipart', **{
+            'HTTP_AUTHORIZATION': f'Bearer {self.token}'
+        })
+        # print(self.token)
+        # print(response.content)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()['name'], 'New Course')
+
+    def test_update_course(self):
+        # Data untuk update course
+        updated_data = {
+            'name': 'Updated Course',
+            'description': 'Updated Description',
+            'price': 200,
+            'file': ''  
+        }
+
+        response = self.client.post(
+            f"{self.base_url}courses/{self.course.id}",
+            data=updated_data,
+            format='multipart',
+            **{'HTTP_AUTHORIZATION': f'Bearer {self.token}'}
+        )
+
+        print("Status:", response.status_code)
+        print("Response:", response.json())
+
+        # Assertions
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['name'], updated_data['name'])
+        self.assertEqual(response.json()['description'], updated_data['description'])
+        self.assertEqual(response.json()['price'], updated_data['price'])
+
+    def test_enroll_course(self):
+        response = self.client.post(f'{self.base_url}courses/{self.course.id}/enroll/',
+                     **{'HTTP_AUTHORIZATION': 'Bearer ' +
+                        str(self.token)})
+        self.assertEqual(response.status_code, 200)
+
+    def test_create_content_comment(self):
+        content = CourseContent.objects.create(
+            course_id=self.course,
+            name="Content Title",
+            description="Content Description"
+        )
+
+        # Enroll dulu sebagai student
+        self.client.post(
+            f'{self.base_url}courses/{self.course.id}/enroll',
+            **{'HTTP_AUTHORIZATION': f'Bearer {str(self.student_token)}'}
+        )
+
+        response = self.client.post(
+            f'{self.base_url}contents/{content.id}/comments',
+            data={'comment': 'This is a comment'},
+            content_type='application/json',
+            **{'HTTP_AUTHORIZATION': f'Bearer {str(self.student_token)}'}
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['comment'], 'This is a comment')
