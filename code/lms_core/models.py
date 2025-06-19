@@ -36,7 +36,7 @@ class CourseMember(models.Model):
         verbose_name_plural = "Subscriber Matkul"
 
     def __str__(self) -> str:
-        return f"{self.id} {self.course_id} : {self.user_id}"
+        return f"{self.course_id} : {self.user_id}"
 
 class CourseContent(models.Model):
     name = models.CharField("judul konten", max_length=200)
