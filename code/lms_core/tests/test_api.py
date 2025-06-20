@@ -99,3 +99,56 @@ class APITestCase(TestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()['comment'], 'This is a comment')
+
+    def test_create_content_comment(self):
+        content = CourseContent.objects.create(course_id=self.course,
+                                               name="Content Title",
+                                               description="Content Description")
+
+        self.client.post(f'{self.base_url}courses/{self.course.id}/enroll/',
+                     **{'HTTP_AUTHORIZATION': 'Bearer ' +
+                        str(self.student_token)})
+
+        response = self.client.post(f'{self.base_url}contents/{content.id}/comments/',
+                     data=json.dumps({'comment': 'This is a comment'}),
+                     content_type='application/json',
+                     **{'HTTP_AUTHORIZATION': 'Bearer ' +
+                        str(self.student_token)})
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()['comment'], 'This is a comment')
+
+    def test_delete_comment(self):
+        # Buat konten untuk kursus
+        content = CourseContent.objects.create(
+            course_id=self.course,
+            name="Content Title",
+            description="Content Description"
+        )
+
+        # Enroll user ke kursus
+        self.client.post(
+            f'{self.base_url}courses/{self.course.id}/enroll/',
+            **{'HTTP_AUTHORIZATION': f'Bearer {self.student_token}'}
+        )
+
+        # Buat komentar pada konten
+        response = self.client.post(
+            f'{self.base_url}contents/{content.id}/comments/',
+            data=json.dumps({'comment': 'This is a comment'}),
+            content_type='application/json',
+            **{'HTTP_AUTHORIZATION': f'Bearer {self.student_token}'}
+        )
+
+        self.assertEqual(response.status_code, 201)
+        comment_id = response.json()['id']
+
+        # Hapus komentar yang telah dibuat
+        response = self.client.delete(
+            f'{self.base_url}comments/{comment_id}',
+            **{'HTTP_AUTHORIZATION': f'Bearer {self.student_token}'}
+        )
+
+        # Verifikasi bahwa statusnya OK dan komentar terhapus dari database
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Comment.objects.filter(id=comment_id).exists())

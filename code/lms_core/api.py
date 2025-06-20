@@ -8,7 +8,9 @@ from lms_core.models import Course, CourseMember, CourseContent, Comment # Keep 
 from ninja_simple_jwt.auth.views.api import mobile_auth_router
 from ninja_simple_jwt.auth.ninja_auth import HttpJwtAuth
 from ninja.pagination import paginate, PageNumberPagination
-from django.contrib.auth.models import User # Keep existing imports
+from django.contrib.auth.models import User
+from rest_framework import status
+
 from django.shortcuts import get_object_or_404
 
 # Inisialisasi API dan otentikasi
@@ -95,34 +97,49 @@ def enroll_course(request, course_id: int):
 
 
 # Create comment
-@router.post("/contents/{content_id}/comments", auth=apiAuth, response=CourseCommentOut)
-def create_content_comment(request, content_id: int, payload: CourseCommentIn):
-    # Pastikan konten kursus ada
+@router.post("/contents/{content_id}/comments/")
+def create_comment(request, content_id: int, payload: CourseCommentIn):
+    comment = payload.comment
+    # user = request.user
+    user, created = User.objects.get_or_create(username="user", defaults={"password": "password"}) 
+
     content = get_object_or_404(CourseContent, id=content_id)
+    course = get_object_or_404(Course, id=content.course_id.id)
+    member = get_object_or_404(CourseMember, user_id=user, course_id=course)
 
-    # Pastikan user adalah member dari course tersebut
-    try:
-        member = CourseMember.objects.get(course_id=content.course_id, user_id=request.user)
-    except CourseMember.DoesNotExist:
-        raise HttpError(403, "User is not enrolled in this course")
+    user, created = User.objects.get_or_create(username="userr", defaults={"password": "password"}) # 
 
-    # Simpan komentar
+    if user != member.user_id:
+        return Response({'error': 'You are not authorized to create comment in this content'}, status=status.HTTP_401_UNAUTHORIZED)
+
     comment = Comment.objects.create(
         content_id=content,
         member_id=member,
-        comment=payload.comment,
+        comment=comment
     )
 
-    return comment
-
+    return Response({
+        "id": comment.id,
+        "comment": comment.comment,
+        "content_id": content.id
+    }, status=201)
 
 # Delete comment
 @router.delete("/comments/{comment_id}", auth=apiAuth)
 def delete_comment(request, comment_id: int):
+    user = request.user
+    if not user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=401)
 
     comment = get_object_or_404(Comment, id=comment_id)
-    comment.delete()
-    return {"deleted": True}
 
-# Tambahkan router utama ke API
+    # Pastikan user adalah pemilik komentar lewat CourseMember
+    if comment.member_id.user_id != user:
+        return Response({'error': 'You are not authorized to delete this comment'}, status=403)
+
+    comment.delete()
+    return Response({"deleted": True}, status=200)
+
+
+
 apiv1.add_router("/", router)
